@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force-Directed Graph - Malawi Districts</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        h2 {
+            color: #34495e;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 40px;
+        }
+        
+        h3 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        
+        .step {
+            background: #ecf0f1;
+            border-left: 4px solid #3498db;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+        
+        .highlight {
+            background: #f39c12;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type="range"] {
+            width: 150px;
+        }
+        
+        .graph-container {
+            background: white;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .node {
+            fill: #3498db;
+            stroke: #2c3e50;
+            stroke-width: 2px;
+            cursor: pointer;
+        }
+        
+        .node:hover {
+            fill: #e74c3c;
+        }
+        
+        .link {
+            stroke: #7f8c8d;
+            stroke-width: 2px;
+        }
+        
+        .node-label {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            fill: #2c3e50;
+            text-anchor: middle;
+            pointer-events: none;
+        }
+        
+        .info-panel {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .warning {
+            background: #f39c12;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .success {
+            background: #27ae60;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1> Force-Directed Graph Algorithm</h1>
+    </div>
+
+    <div class="container">
+        
+        <div class="controls">
+            <button id="startBtn">▶️ Start Simulation</button>
+            <button id="stopBtn">⏸️ Stop Simulation</button>
+            <button id="resetBtn">🔄 Reset Positions</button>
+            <div class="slider-container">
+                <label>Link Strength:</label>
+                <input type="range" id="linkStrength" min="0" max="2" step="0.1" value="1">
+                <span id="linkValue">1.0</span>
+            </div>
+            <div class="slider-container">
+                <label>Charge Strength:</label>
+                <input type="range" id="chargeStrength" min="-1000" max="-50" step="50" value="-300">
+                <span id="chargeValue">-300</span>
+            </div>
+        </div>
+        
+        <div class="graph-container">
+            <svg id="graph" width="800" height="600"></svg>
+        </div>
+        
+        <div class="info-panel">
+            <strong>💡 Interactive Features:</strong>
+            <ul>
+                <li>Drag nodes to reposition them</li>
+                <li>Hover over nodes to highlight them</li>
+                <li>Adjust force parameters with sliders</li>
+                <li>Start/stop the simulation</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Step 1: Parse and prepare the data
+        const rawData = {
+            nodes: [
+                { "id": "Blantyre", "x": 0.9134213014976535, "y": 0.2540740323898225 },
+                { "id": "Chikwawa", "x": 0.14374226893980302, "y": 0.3910154112946962 },
+                { "id": "Chiradzulu", "x": 0.9351749046225152, "y": 0.5027042682331085 },
+                { "id": "Chitipa", "x": 0.5033532302137712, "y": 0.6371050642113303 },
+                { "id": "Dedza", "x": 0.32675593364689126, "y": 0.32741458873737384 },
+                { "id": "Dowa", "x": 0.44893854232683894, "y": 0.3534310438093927 },
+                { "id": "Karonga", "x": 0.7719114930591756, "y": 0.7164846847486838 },
+                { "id": "Kasungu", "x": 0.9486271739760203, "y": 0.03717616769235954 },
+                { "id": "Lilongwe", "x": 0.03185092819745572, "y": 0.07907784991666855 },
+                { "id": "Machinga", "x": 0.4976553188158377, "y": 0.15957191749775634 },
+                { "id": "Mangochi", "x": 0.2417748469656349, "y": 0.22132470346325728 },
+                { "id": "Mchinji", "x": 0.8029651384628501, "y": 0.4170419722297135 },
+                { "id": "Mulanje", "x": 0.6998851394303303, "y": 0.7300336822154281 },
+                { "id": "Mwanza", "x": 0.3093976112949879, "y": 0.9141857772478698 },
+                { "id": "Mzimba", "x": 0.16190201617155997, "y": 0.8356366262711726 },
+                { "id": "Neno", "x": 0.9869012833729535, "y": 0.3511167097222222 },
+                { "id": "Nkhata Bay", "x": 0.0882233026546202, "y": 0.18674223158715342 },
+                { "id": "Nkhotakota", "x": 0.17467106409589772, "y": 0.0010883823237957113 },
+                { "id": "Nsanje", "x": 0.8093914854184416, "y": 0.5079865816371467 },
+                { "id": "Ntcheu", "x": 0.8588177668360885, "y": 0.4167540312634731 },
+                { "id": "Ntchisi", "x": 0.3969781197576786, "y": 0.9982702660465445 },
+                { "id": "Phalombe", "x": 0.934352810085411, "y": 0.7328019939159007 },
+                { "id": "Rumphi", "x": 0.2438492080065875, "y": 0.0387865957339274 },
+                { "id": "Salima", "x": 0.837201462046805, "y": 0.9965726289086905 },
+                { "id": "Thyolo", "x": 0.6272655175304893, "y": 0.7688215502317457 },
+                { "id": "Zomba", "x": 0.7252659639019722, "y": 0.810888016094619 },
+                { "id": "Balaka", "x": 0.15932838570160823, "y": 0.5698123530031478 },
+                { "id": "Likoma", "x": 0.3488343806746971, "y": 0.6253864059894712 }
+            ],
+            edges: [
+                ["Blantyre", "Chikwawa"], ["Blantyre", "Chiradzulu"], ["Blantyre", "Thyolo"],
+                ["Chikwawa", "Nsanje"], ["Chikwawa", "Mwanza"], ["Chiradzulu", "Zomba"],
+                ["Chiradzulu", "Phalombe"], ["Chitipa", "Karonga"], ["Dedza", "Lilongwe"],
+                ["Dedza", "Ntcheu"], ["Dowa", "Lilongwe"], ["Dowa", "Ntchisi"],
+                ["Karonga", "Rumphi"], ["Kasungu", "Lilongwe"], ["Kasungu", "Mzimba"],
+                ["Lilongwe", "Mchinji"], ["Lilongwe", "Salima"], ["Machinga", "Zomba"],
+                ["Machinga", "Balaka"], ["Mangochi", "Balaka"], ["Mangochi", "Salima"],
+                ["Mulanje", "Phalombe"], ["Mulanje", "Thyolo"], ["Mwanza", "Neno"],
+                ["Mzimba", "Nkhata Bay"], ["Mzimba", "Rumphi"], ["Nkhata Bay", "Nkhotakota"],
+                ["Nkhotakota", "Salima"], ["Nsanje", "Chikwawa"], ["Ntcheu", "Balaka"],
+                ["Ntchisi", "Nkhotakota"], ["Phalombe", "Mulanje"], ["Salima", "Nkhotakota"],
+                ["Zomba", "Machinga"]
+            ]
+        };
+
+        // Step 2: Set up canvas dimensions
+        const width = 800;
+        const height = 600;
+        const radius = 8;
+
+        // Step 3: Prepare nodes and links
+        const nodes = rawData.nodes.map(node => ({
+            id: node.id,
+            x: node.x * width,
+            y: node.y * height,
+            fx: null,
+            fy: null
+        }));
+
+        const links = rawData.edges.map(edge => ({
+            source: edge[0],
+            target: edge[1]
+        }));
+
+        // Step 4: Create SVG and groups
+        const svg = d3.select("#graph");
+        const g = svg.append("g");
+
+        // Step 5: Create force simulation
+        let simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).strength(1))
+            .force("charge", d3.forceManyBody().strength(-300))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("x", d3.forceX(width / 2).strength(0.1))
+            .force("y", d3.forceY(height / 2).strength(0.1));
+
+        // Step 6: Create visual elements
+        const linkElements = g.selectAll(".link")
+            .data(links)
+            .enter().append("line")
+            .attr("class", "link");
+
+        const nodeElements = g.selectAll(".node")
+            .data(nodes)
+            .enter().append("circle")
+            .attr("class", "node")
+            .attr("r", radius)
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        const labelElements = g.selectAll(".node-label")
+            .data(nodes)
+            .enter().append("text")
+            .attr("class", "node-label")
+            .text(d => d.id);
+
+        // Step 7: Update positions on each tick
+        simulation.on("tick", () => {
+            // Constrain nodes to canvas bounds
+            nodeElements
+                .attr("cx", d => {
+                    d.x = Math.max(radius, Math.min(width - radius, d.x));
+                    return d.x;
+                })
+                .attr("cy", d => {
+                    d.y = Math.max(radius, Math.min(height - radius, d.y));
+                    return d.y;
+                });
+
+            linkElements
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            labelElements
+                .attr("x", d => d.x)
+                .attr("y", d => d.y - radius - 5);
+        });
+
+        // Step 8: Drag functions
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // Step 9: Control buttons
+        document.getElementById('startBtn').addEventListener('click', () => {
+            simulation.alphaTarget(0.3).restart();
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            simulation.stop();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            nodes.forEach((node, i) => {
+                node.x = rawData.nodes[i].x * width;
+                node.y = rawData.nodes[i].y * height;
+                node.fx = null;
+                node.fy = null;
+            });
+            simulation.alpha(1).restart();
+        });
+
+        // Step 10: Interactive controls
+        const linkStrengthSlider = document.getElementById('linkStrength');
+        const linkValueDisplay = document.getElementById('linkValue');
+        const chargeStrengthSlider = document.getElementById('chargeStrength');
+        const chargeValueDisplay = document.getElementById('chargeValue');
+
+        linkStrengthSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            linkValueDisplay.textContent = value.toFixed(1);
+            simulation.force("link").strength(value);
+            simulation.alpha(0.3).restart();
+        });
+
+        chargeStrengthSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            chargeValueDisplay.textContent = value;
+            simulation.force("charge").strength(value);
+            simulation.alpha(0.3).restart();
+        });
+
+        // Start with a gentle simulation
+        simulation.alpha(0.3).restart();
+    </script>
+</body>
+</html>
